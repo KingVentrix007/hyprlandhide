@@ -5,6 +5,7 @@ import json
 import subprocess
 import time
 import sys
+import signal
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
@@ -125,7 +126,8 @@ class HyprHideApp(QWidget):
         self.load_hidden_windows()
 
         # Position window near mouse pointer on show
-        QTimer.singleShot(0, self.position_near_mouse)
+        QTimer.singleShot(10, self.position_near_mouse)
+
 
     def load_hidden_windows(self):
         if not os.path.exists(HIDE_DIR):
@@ -153,15 +155,28 @@ class HyprHideApp(QWidget):
                         self.content_layout.addWidget(item)
                 except Exception as e:
                     print(f"Error loading {file}: {e}")
+    def closeEvent(self, event):
+        QApplication.quit()
 
     def position_near_mouse(self):
+        if not self.isVisible():
+            QTimer.singleShot(10, self.position_near_mouse)
+            return
+
         pos = QCursor.pos()
-        # Move window 20 px below pointer
-        self.move(pos.x(), pos.y() + 20)
+        screen = QApplication.primaryScreen().availableGeometry()
+        win_width = self.frameGeometry().width()
+        win_height = self.frameGeometry().height()
+
+        x = min(pos.x(), screen.width() - win_width)
+        y = min(pos.y() + 20, screen.height() - win_height)
+
+        self.move(x, y)
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    signal.signal(signal.SIGINT, signal.SIG_DFL)  # Add this line
     window = HyprHideApp()
     window.show()
     sys.exit(app.exec())
