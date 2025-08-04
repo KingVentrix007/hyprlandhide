@@ -86,7 +86,8 @@ class HiddenWindowItem(Gtk.Box):
 
         # Step 5: move active window back on-screen
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
-
+        # self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
+        # self.run_cmd("hyprctl dispatch workspaceopt allfloat")
         # Step 6: remove json file to mark restored
         json_path = os.path.join(HIDE_DIR, f"{self.address}.json")
         try:
