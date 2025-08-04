@@ -63,13 +63,13 @@ class HiddenWindowItem(QWidget):
         name_label = QLabel(app_class)
         name_label.setObjectName("name_label")
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(name_label)
+        # layout.addWidget(name_label)
 
         # Title label (window title)
         title_label = QLabel(title)
         title_label.setObjectName("title_label")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title_label)
+        # layout.addWidget(title_label)
 
         # Screenshot thumbnail centered
         img_path = os.path.join(HIDE_DIR, f"{address}.png")
@@ -79,9 +79,13 @@ class HiddenWindowItem(QWidget):
             img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         else:
-            img_label = QLabel("[No Image]")
-            img_label.setFixedSize(140, 105)
+            img_label = QLabel(title)
+            img_label.setObjectName("title_label")
             img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            # layout.addWidget(title_label)
+            # img_label = QLabel("[No Image]")
+            # img_label.setFixedSize(140, 105)
+            # img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             img_label.setStyleSheet("color: #555555; font-style: italic;")
 
         layout.addWidget(img_label)
