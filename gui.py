@@ -2,33 +2,42 @@
 
 import os
 import json
-import gi
+import subprocess
+import time
+import sys
 
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Gio
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QLabel,
+    QPushButton, QScrollArea, QHBoxLayout
+)
+from PyQt6.QtCore import Qt, QTimer, QPoint
+from PyQt6.QtGui import QCursor
 
 
 HIDE_DIR = os.path.expanduser("~/.local/share/hypr-hide")
 
-import subprocess
-import time
 
-class HiddenWindowItem(Gtk.Box):
+class HiddenWindowItem(QWidget):
     def __init__(self, address, title, app_class, x, y, workspace):
-        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        super().__init__()
         self.address = address
         self.x = x
         self.y = y
         self.workspace = workspace
         self.title = title
 
-        label = Gtk.Label(label=f"{app_class}: {title}", xalign=0)
-        self.append(label)
+        layout = QHBoxLayout()
+        layout.setSpacing(10)
 
-        btn = Gtk.Button(label="Restore")
-        btn.connect("clicked", self.on_restore_clicked)
-        self.append(btn)
+        label = QLabel(f"{app_class}: {title}")
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(label)
+
+        btn = QPushButton("Restore")
+        btn.clicked.connect(self.on_restore_clicked)
+        layout.addWidget(btn)
+
+        self.setLayout(layout)
 
     def run_cmd(self, cmd):
         """Run a shell command, return (stdout, stderr, returncode)"""
@@ -38,7 +47,6 @@ class HiddenWindowItem(Gtk.Box):
     def get_focused_window(self):
         out, _, _ = self.run_cmd("hyprctl activewindow -j")
         try:
-            import json
             j = json.loads(out)
             return j.get("address", "")
         except Exception:
@@ -55,23 +63,19 @@ class HiddenWindowItem(Gtk.Box):
             tries += 1
         return False
 
-    def on_restore_clicked(self, _btn):
+    def on_restore_clicked(self):
         addr = self.address
-        # Strip "0x" prefix if present
         if addr.startswith("0x"):
             addr = addr[2:]
 
         print(f"Restoring window {self.title} at {self.x},{self.y} on workspace {self.workspace}")
 
-        # Step 1: switch workspace
         self.run_cmd(f"hyprctl dispatch workspace {self.workspace}")
         time.sleep(0.3)
 
-        # Step 2: try direct focus
         self.run_cmd(f"hyprctl dispatch focuswindow address:0x{addr}")
         time.sleep(0.3)
 
-        # Step 3: check focused window
         focused = self.get_focused_window()
         if focused != self.address:
             print("Direct focus failed, cycling to locate window...")
@@ -80,15 +84,11 @@ class HiddenWindowItem(Gtk.Box):
                 print("Failed to focus window after cycling")
                 return
 
-        # Step 4: toggle floating if needed (assume it's needed here)
         self.run_cmd("hyprctl dispatch togglefloating")
         time.sleep(0.3)
 
-        # Step 5: move active window back on-screen
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
-        # self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
-        # self.run_cmd("hyprctl dispatch workspaceopt allfloat")
-        # Step 6: remove json file to mark restored
+
         json_path = os.path.join(HIDE_DIR, f"{self.address}.json")
         try:
             os.remove(json_path)
@@ -98,47 +98,69 @@ class HiddenWindowItem(Gtk.Box):
         print("Restore complete.")
 
 
-
-class HyprHideApp(Adw.Application):
+class HyprHideApp(QWidget):
     def __init__(self):
-        super().__init__(application_id="dev.kv.HyprHide",
-                         flags=Gio.ApplicationFlags.FLAGS_NONE)
+        super().__init__()
+        self.setWindowTitle("Hidden Windows")
+        self.setFixedSize(400, 300)
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+        self.setWindowFlag(Qt.WindowType.Tool)  # Small popup style window, no taskbar entry
 
-    def do_activate(self):
-        win = Adw.ApplicationWindow(application=self)
-        win.set_title("Hidden Windows")
-        win.set_default_size(400, 300)
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
 
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.layout.addWidget(self.scroll_area)
 
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout()
+        self.content_layout.setSpacing(8)
+        self.content_layout.setContentsMargins(12, 12, 12, 12)
+        self.content_widget.setLayout(self.content_layout)
+
+        self.scroll_area.setWidget(self.content_widget)
+
+        self.load_hidden_windows()
+
+        # Position window near mouse pointer on show
+        QTimer.singleShot(0, self.position_near_mouse)
+
+    def load_hidden_windows(self):
         if not os.path.exists(HIDE_DIR):
             os.makedirs(HIDE_DIR)
 
         files = [f for f in os.listdir(HIDE_DIR) if f.endswith(".json")]
 
         if not files:
-            content.append(Gtk.Label(label="No hidden windows", xalign=0))
+            label = QLabel("No hidden windows")
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            self.content_layout.addWidget(label)
         else:
             for file in files:
-                with open(os.path.join(HIDE_DIR, file)) as f:
-                    data = json.load(f)
-                    item = HiddenWindowItem(
-                        address=data['address'],
-                        title=data['title'],
-                        app_class=data['class'],
-                        x=data['at'][0],
-                        y=data['at'][1],
-                        workspace = data['workspace']['id']
-                    )
-                    content.append(item)
+                try:
+                    with open(os.path.join(HIDE_DIR, file)) as f:
+                        data = json.load(f)
+                        item = HiddenWindowItem(
+                            address=data['address'],
+                            title=data['title'],
+                            app_class=data['class'],
+                            x=data['at'][0],
+                            y=data['at'][1],
+                            workspace=data['workspace']['id']
+                        )
+                        self.content_layout.addWidget(item)
+                except Exception as e:
+                    print(f"Error loading {file}: {e}")
 
-        scroller = Gtk.ScrolledWindow()
-        scroller.set_child(content)
-
-        win.set_content(scroller)
-        win.present()
+    def position_near_mouse(self):
+        pos = QCursor.pos()
+        # Move window 20 px below pointer
+        self.move(pos.x(), pos.y() + 20)
 
 
 if __name__ == "__main__":
-    app = HyprHideApp()
-    app.run()
+    app = QApplication(sys.argv)
+    window = HyprHideApp()
+    window.show()
+    sys.exit(app.exec())
