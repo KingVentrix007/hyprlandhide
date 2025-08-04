@@ -7,57 +7,100 @@ import time
 import sys
 import signal
 
+from PyQt6.QtGui import QFont, QPixmap, QIcon, QCursor
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
-    QPushButton, QScrollArea, QHBoxLayout
+    QScrollArea
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint
-from PyQt6.QtGui import QCursor, QFont, QColor, QPalette
-
+from PyQt6.QtCore import (
+    Qt, QTimer, QPropertyAnimation, QEasingCurve
+)
+from PyQt6.QtWidgets import QGraphicsOpacityEffect
 
 HIDE_DIR = os.path.expanduser("~/.local/share/hypr-hide")
 
 
 class HiddenWindowItem(QWidget):
-    def __init__(self, address, title, app_class, x, y, workspace, parent_list_layout):
+    def __init__(self, address, title, app_class, x, y, workspace):
         super().__init__()
         self.address = address
         self.x = x
         self.y = y
         self.workspace = workspace
         self.title = title
-        self.parent_list_layout = parent_list_layout
+        self.app_class = app_class
 
-        layout = QHBoxLayout()
-        layout.setSpacing(10)
-
-        label = QLabel(f"{app_class}: {title}")
-        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        label.setFont(QFont("Sans", 10))
-        layout.addWidget(label, stretch=1)
-
-        btn = QPushButton("Restore")
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.on_restore_clicked)
-        layout.addWidget(btn)
-
-        self.setLayout(layout)
+        # Sleek card background with subtle border and hover effect
         self.setStyleSheet("""
             QWidget {
-                background-color: #f0f0f0;
-                border-radius: 6px;
-                padding: 6px;
+                background-color: #1e1e1e;
+                border: 1px solid #3a3a3a;
+                border-radius: 8px;
+                padding: 8px;
             }
-            QPushButton {
-                background-color: #dcdcdc;
-                border: 1px solid #aaa;
-                border-radius: 4px;
-                padding: 4px 10px;
+            QWidget:hover {
+                border-color: #666666;
+                background-color: #2a2a2a;
             }
-            QPushButton:hover {
-                background-color: #c0c0c0;
+            QLabel#name_label {
+                color: #eeeeee;
+                font-weight: bold;
+                font-size: 11pt;
+            }
+            QLabel#title_label {
+                color: #bbbbbb;
+                font-size: 9pt;
             }
         """)
+
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        layout = QVBoxLayout()
+        layout.setSpacing(6)
+        layout.setContentsMargins(6, 6, 6, 6)
+
+        # Name label (app class)
+        name_label = QLabel(app_class)
+        name_label.setObjectName("name_label")
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(name_label)
+
+        # Title label (window title)
+        title_label = QLabel(title)
+        title_label.setObjectName("title_label")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Screenshot thumbnail centered
+        img_path = os.path.join(HIDE_DIR, f"{address}.png")
+        if os.path.exists(img_path):
+            pixmap = QPixmap(img_path).scaled(140, 105, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            img_label = QLabel()
+            img_label.setPixmap(pixmap)
+            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            img_label = QLabel("[No Image]")
+            img_label.setFixedSize(140, 105)
+            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            img_label.setStyleSheet("color: #555555; font-style: italic;")
+
+        layout.addWidget(img_label)
+
+        self.setLayout(layout)
+
+        # Opacity effect for fade-in animation
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+        self.opacity_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.opacity_anim.setDuration(400)
+        self.opacity_anim.setStartValue(0.0)
+        self.opacity_anim.setEndValue(1.0)
+        self.opacity_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.opacity_anim.start()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.on_restore_clicked()
 
     def run_cmd(self, cmd):
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -87,6 +130,8 @@ class HiddenWindowItem(QWidget):
         if addr.startswith("0x"):
             addr = addr[2:]
 
+        print(f"Restoring window {self.title} at {self.x},{self.y} on workspace {self.workspace}")
+
         self.run_cmd(f"hyprctl dispatch workspace {self.workspace}")
         time.sleep(0.3)
 
@@ -95,7 +140,11 @@ class HiddenWindowItem(QWidget):
 
         focused = self.get_focused_window()
         if focused != self.address:
-            self.cycle_until_focused(self.address)
+            print("Direct focus failed, cycling to locate window...")
+            success = self.cycle_until_focused(self.address)
+            if not success:
+                print("Failed to focus window after cycling")
+                return
 
         self.run_cmd("hyprctl dispatch togglefloating")
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
@@ -107,37 +156,43 @@ class HiddenWindowItem(QWidget):
         except Exception as e:
             print(f"Failed to remove {json_path}: {e}")
 
-        # Remove widget from layout
-        self.setParent(None)
-        self.deleteLater()
+        img_path = os.path.join(HIDE_DIR, f"{self.address}.png")
+        try:
+            if os.path.exists(img_path):
+                os.remove(img_path)
+        except Exception as e:
+            print(f"Failed to remove screenshot {img_path}: {e}")
+
+        print("Restore complete.")
 
 
 class HyprHideApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Hidden Windows")
-        self.setFixedSize(420, 320)
+        self.setFixedSize(420, 420)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-        self.setWindowFlag(Qt.WindowType.Tool)  # No taskbar entry
+        self.setWindowFlag(Qt.WindowType.Tool)
 
         self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setSpacing(12)
         self.setLayout(self.layout)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("border: none;")
         self.layout.addWidget(self.scroll_area)
 
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout()
         self.content_layout.setSpacing(10)
-        self.content_layout.setContentsMargins(12, 12, 12, 12)
+        self.content_layout.setContentsMargins(8, 8, 8, 8)
         self.content_widget.setLayout(self.content_layout)
 
         self.scroll_area.setWidget(self.content_widget)
 
         self.load_hidden_windows()
-        QTimer.singleShot(0, self.position_near_mouse)
+        QTimer.singleShot(10, self.position_near_mouse)
 
     def load_hidden_windows(self):
         if not os.path.exists(HIDE_DIR):
@@ -147,8 +202,7 @@ class HyprHideApp(QWidget):
 
         if not files:
             label = QLabel("No hidden windows")
-            label.setFont(QFont("Sans", 11, QFont.Weight.Bold))
-            label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
             self.content_layout.addWidget(label)
         else:
             for file in files:
@@ -161,21 +215,27 @@ class HyprHideApp(QWidget):
                             app_class=data['class'],
                             x=data['at'][0],
                             y=data['at'][1],
-                            workspace=data['workspace']['id'],
-                            parent_list_layout=self.content_layout
+                            workspace=data['workspace']['id']
                         )
                         self.content_layout.addWidget(item)
                 except Exception as e:
                     print(f"Error loading {file}: {e}")
 
-    def position_near_mouse(self):
-        pos = QCursor.pos()
-        w = self.width()
-        h = self.height()
-        screen = QApplication.primaryScreen().availableGeometry()
+    def closeEvent(self, event):
+        QApplication.quit()
 
-        x = min(pos.x(), screen.width() - w)
-        y = min(pos.y() + 20, screen.height() - h)
+    def position_near_mouse(self):
+        if not self.isVisible():
+            QTimer.singleShot(10, self.position_near_mouse)
+            return
+
+        pos = QCursor.pos()
+        screen = QApplication.primaryScreen().availableGeometry()
+        win_width = self.frameGeometry().width()
+        win_height = self.frameGeometry().height()
+
+        x = min(pos.x(), screen.width() - win_width)
+        y = min(pos.y() + 20, screen.height() - win_height)
 
         self.move(x, y)
 

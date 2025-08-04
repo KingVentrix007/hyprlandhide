@@ -7,13 +7,15 @@ import time
 import sys
 import signal
 
+from PyQt6.QtGui import QFont, QPixmap, QIcon, QCursor
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
-    QPushButton, QScrollArea, QHBoxLayout
+    QScrollArea
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint
-from PyQt6.QtGui import QCursor
-
+from PyQt6.QtCore import (
+    Qt, QTimer, QPropertyAnimation, QEasingCurve
+)
+from PyQt6.QtWidgets import QGraphicsOpacityEffect
 
 HIDE_DIR = os.path.expanduser("~/.local/share/hypr-hide")
 
@@ -26,22 +28,81 @@ class HiddenWindowItem(QWidget):
         self.y = y
         self.workspace = workspace
         self.title = title
+        self.app_class = app_class
 
-        layout = QHBoxLayout()
-        layout.setSpacing(10)
+        # Sleek card background with subtle border and hover effect
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e1e1e;
+                border: 1px solid #3a3a3a;
+                border-radius: 8px;
+                padding: 8px;
+            }
+            QWidget:hover {
+                border-color: #666666;
+                background-color: #2a2a2a;
+            }
+            QLabel#name_label {
+                color: #eeeeee;
+                font-weight: bold;
+                font-size: 11pt;
+            }
+            QLabel#title_label {
+                color: #bbbbbb;
+                font-size: 9pt;
+            }
+        """)
 
-        label = QLabel(f"{app_class}: {title}")
-        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        layout.addWidget(label)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        btn = QPushButton("Restore")
-        btn.clicked.connect(self.on_restore_clicked)
-        layout.addWidget(btn)
+        layout = QVBoxLayout()
+        layout.setSpacing(6)
+        layout.setContentsMargins(6, 6, 6, 6)
+
+        # Name label (app class)
+        name_label = QLabel(app_class)
+        name_label.setObjectName("name_label")
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(name_label)
+
+        # Title label (window title)
+        title_label = QLabel(title)
+        title_label.setObjectName("title_label")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Screenshot thumbnail centered
+        img_path = os.path.join(HIDE_DIR, f"{address}.png")
+        if os.path.exists(img_path):
+            pixmap = QPixmap(img_path).scaled(140, 105, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            img_label = QLabel()
+            img_label.setPixmap(pixmap)
+            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            img_label = QLabel("[No Image]")
+            img_label.setFixedSize(140, 105)
+            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            img_label.setStyleSheet("color: #555555; font-style: italic;")
+
+        layout.addWidget(img_label)
 
         self.setLayout(layout)
 
+        # Opacity effect for fade-in animation
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+        self.opacity_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.opacity_anim.setDuration(400)
+        self.opacity_anim.setStartValue(0.0)
+        self.opacity_anim.setEndValue(1.0)
+        self.opacity_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.opacity_anim.start()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.on_restore_clicked()
+
     def run_cmd(self, cmd):
-        """Run a shell command, return (stdout, stderr, returncode)"""
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         return result.stdout.strip(), result.stderr.strip(), result.returncode
 
@@ -86,16 +147,21 @@ class HiddenWindowItem(QWidget):
                 return
 
         self.run_cmd("hyprctl dispatch togglefloating")
-        # time.sleep(0.3)
-
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
+        self.run_cmd("hyprctl dispatch togglefloating")
 
         json_path = os.path.join(HIDE_DIR, f"{self.address}.json")
         try:
             os.remove(json_path)
         except Exception as e:
             print(f"Failed to remove {json_path}: {e}")
-        self.run_cmd("hyprctl dispatch togglefloating")
+
+        img_path = os.path.join(HIDE_DIR, f"{self.address}.png")
+        try:
+            if os.path.exists(img_path):
+                os.remove(img_path)
+        except Exception as e:
+            print(f"Failed to remove screenshot {img_path}: {e}")
 
         print("Restore complete.")
 
@@ -104,11 +170,13 @@ class HyprHideApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Hidden Windows")
-        self.setFixedSize(400, 300)
+        self.setFixedSize(420, 420)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-        self.setWindowFlag(Qt.WindowType.Tool)  # Small popup style window, no taskbar entry
+        self.setWindowFlag(Qt.WindowType.Tool)
 
         self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setSpacing(12)
         self.setLayout(self.layout)
 
         self.scroll_area = QScrollArea()
@@ -117,17 +185,14 @@ class HyprHideApp(QWidget):
 
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout()
-        self.content_layout.setSpacing(8)
-        self.content_layout.setContentsMargins(12, 12, 12, 12)
+        self.content_layout.setSpacing(10)
+        self.content_layout.setContentsMargins(8, 8, 8, 8)
         self.content_widget.setLayout(self.content_layout)
 
         self.scroll_area.setWidget(self.content_widget)
 
         self.load_hidden_windows()
-
-        # Position window near mouse pointer on show
         QTimer.singleShot(10, self.position_near_mouse)
-
 
     def load_hidden_windows(self):
         if not os.path.exists(HIDE_DIR):
@@ -155,6 +220,7 @@ class HyprHideApp(QWidget):
                         self.content_layout.addWidget(item)
                 except Exception as e:
                     print(f"Error loading {file}: {e}")
+
     def closeEvent(self, event):
         QApplication.quit()
 
@@ -176,7 +242,7 @@ class HyprHideApp(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    signal.signal(signal.SIGINT, signal.SIG_DFL)  # Add this line
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     window = HyprHideApp()
     window.show()
     sys.exit(app.exec())
