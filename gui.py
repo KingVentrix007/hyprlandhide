@@ -85,7 +85,7 @@ class HiddenWindowItem(QWidget):
                 return
 
         self.run_cmd("hyprctl dispatch togglefloating")
-        time.sleep(0.3)
+        # time.sleep(0.3)
 
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
 
@@ -94,6 +94,7 @@ class HiddenWindowItem(QWidget):
             os.remove(json_path)
         except Exception as e:
             print(f"Failed to remove {json_path}: {e}")
+        self.run_cmd("hyprctl dispatch togglefloating")
 
         print("Restore complete.")
 
