@@ -425,7 +425,7 @@ class HyprHideAppInitWindow(QWidget):
 
         self.label = QLabel("Initial Setup")
         self.layout.addWidget(self.label)
-
+        
         # Thumbnails checkbox
         self.cb_thumbnails = QCheckBox("Enable thumbnails for hidden windows(Currently not used option)")
         self.cb_thumbnails.setChecked(True)
@@ -448,7 +448,8 @@ class HyprHideAppInitWindow(QWidget):
         self.btn_save = QPushButton("Finish Setup")
         self.btn_save.clicked.connect(self.save_config_and_launch)
         self.layout.addWidget(self.btn_save)
-
+        self.label = QLabel("Important\n\tmin.sh is at /usr/bin/hyprhide-min\n\tYou should either bind it to a \n\t\tkeybind, or create another way to trigger it")
+        self.layout.addWidget(self.label)
     def is_waybar_installed(self):
         return any(os.access(os.path.join(path, "waybar"), os.X_OK) for path in os.environ["PATH"].split(os.pathsep))
     def install_into_waybar(self):
