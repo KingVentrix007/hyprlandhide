@@ -21,6 +21,33 @@
 ---
 
 ### ⚙️ Setup
+#### 🔧 Full Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/KingVentrix007/hyprlandhide
+   ```
+
+2. Navigate to the build directory:
+
+   ```bash
+   cd hyprlandhide/HyprHide
+   ```
+
+3. Build and install the package:
+
+   ```bash
+   makepkg -si
+   ```
+
+4. Launch the GUI:
+
+   ```bash
+   hyprhide-gui
+   ```
+
+---
 
 #### 🖱️ Keybind Mode
 
@@ -91,4 +118,3 @@
 * Better tracking of window state (floating/tiling)
 * More accurate positioning on restore
 * Persistent metadata storage for full layout memory
-
