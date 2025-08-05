@@ -16,6 +16,7 @@ from PyQt6.QtCore import (
     Qt, QTimer, QPropertyAnimation, QEasingCurve
 )
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
+from PyQt6.QtWidgets import QLineEdit, QGridLayout
 
 HIDE_DIR = os.path.expanduser("~/.local/share/hypr-hide")
         
@@ -88,7 +89,7 @@ class HiddenWindowItem(QWidget):
                 font-size: 9pt;
             }
         """)
-
+        self.setWindowOpacity(0.95)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         layout = QVBoxLayout()
@@ -222,31 +223,43 @@ class HyprHideApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Hidden Windows")
-        self.setFixedSize(420, 420)
+        self.setFixedSize(460, 500)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         self.setWindowFlag(Qt.WindowType.Tool)
 
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(10, 10, 10, 10)
-        self.layout.setSpacing(12)
+        self.layout.setSpacing(10)
         self.setLayout(self.layout)
+
+        # 🔍 Search bar
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search hidden windows...")
+        self.search_bar.textChanged.connect(self.filter_items)
+        self.layout.addWidget(self.search_bar)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.layout.addWidget(self.scroll_area)
 
         self.content_widget = QWidget()
-        self.content_layout = QVBoxLayout()
-        self.content_layout.setSpacing(10)
-        self.content_layout.setContentsMargins(8, 8, 8, 8)
-        self.content_widget.setLayout(self.content_layout)
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setSpacing(10)
+        self.grid_layout.setContentsMargins(8, 8, 8, 8)
+        self.content_widget.setLayout(self.grid_layout)
 
         self.scroll_area.setWidget(self.content_widget)
 
+        self.window_items = []
         self.load_hidden_windows()
+
         QTimer.singleShot(10, self.position_near_mouse)
 
     def load_hidden_windows(self):
+        self.window_items.clear()
+        for i in reversed(range(self.grid_layout.count())):
+            self.grid_layout.itemAt(i).widget().setParent(None)
+
         if not os.path.exists(HIDE_DIR):
             os.makedirs(HIDE_DIR)
 
@@ -255,8 +268,9 @@ class HyprHideApp(QWidget):
         if not files:
             label = QLabel("No hidden windows")
             label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            self.content_layout.addWidget(label)
+            self.grid_layout.addWidget(label, 0, 0)
         else:
+            row, col = 0, 0
             for file in files:
                 try:
                     with open(os.path.join(HIDE_DIR, file)) as f:
@@ -270,9 +284,21 @@ class HyprHideApp(QWidget):
                             workspace=data['workspace']['id'],
                             was_floating=data['floating']
                         )
-                        self.content_layout.addWidget(item)
+                        self.window_items.append(item)
+                        self.grid_layout.addWidget(item, row, col)
+                        col += 1
+                        if col >= 3:
+                            row += 1
+                            col = 0
                 except Exception as e:
                     print(f"Error loading {file}: {e}")
+
+    def filter_items(self, text):
+        text = text.lower()
+        for i in range(self.grid_layout.count()):
+            item = self.grid_layout.itemAt(i).widget()
+            visible = text in item.title.lower() or text in item.app_class.lower()
+            item.setVisible(visible)
 
     def closeEvent(self, event):
         QApplication.quit()
@@ -291,6 +317,7 @@ class HyprHideApp(QWidget):
         y = min(pos.y() + 20, screen.height() - win_height)
 
         self.move(x, y)
+
 
 def safety_check_generate_missing_json_files():
     threshold = 900  # pixels around (5000, 5000)
