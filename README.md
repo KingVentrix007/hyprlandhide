@@ -25,8 +25,11 @@
 #### 🖱️ Keybind Mode
 
 1. Make sure `min.sh` is executable:
-   `chmod +x min.sh`
-2. Create a keybind in Hyprland config to run `min.sh`
+
+   ```bash
+   chmod +x min.sh
+   ```
+2. Create a keybind in your Hyprland config to run `min.sh`
 3. Add another keybind to launch `HyprHideGui.py`
 
 #### 🧩 Hyprbars (Optional)
@@ -35,10 +38,33 @@
 2. Create a new button in your Hyprbars config
 3. Bind the button to execute `min.sh`
 
-#### 📎 Optional Extras
+#### 🖥️ Waybar Integration (Optional)
 
-* Attach the GUI to your Waybar (or any other bar) for quick visual access
-* Use scripts to auto-restore or track window state persistently
+1. Open your Waybar config:
+
+   ```bash
+   nano ~/.config/waybar/config
+   ```
+2. Add `"custom/hyprhide"` to your desired module section, such as `modules-left`, `modules-center`, or `modules-right`. For example:
+
+   ```json
+   "modules-right": ["custom/hyprhide", ...]
+   ```
+3. Open your custom module definitions:
+
+   ```bash
+   nano ~/.config/waybar/modules/modules-custom.jsonc
+   ```
+4. Add the following snippet (replace the path on-click as needed):
+
+   ```json
+   "custom/hyprhide": {
+       "exec": "echo '🗔'", 
+       "interval": 0,
+       "on-click": "python3 /mnt/MyCodeProjects/hyprlandhide/HyprHideGui.py",
+       "tooltip-format": "Press to see all hidden windows"
+   }
+   ```
 
 ---
 
@@ -65,3 +91,4 @@
 * Better tracking of window state (floating/tiling)
 * More accurate positioning on restore
 * Persistent metadata storage for full layout memory
+

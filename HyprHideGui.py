@@ -6,8 +6,8 @@ import subprocess
 import time
 import sys
 import signal
-JUMP_TO_MOUSE = False
-X_OFFEST = -400
+JUMP_TO_MOUSE = False # Currently broken. Do not enable
+X_OFFEST = -260
 Y_OFFSET = 160
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QCursor
 from PyQt6.QtWidgets import (
