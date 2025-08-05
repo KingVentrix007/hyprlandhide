@@ -443,17 +443,51 @@ class HyprHideAppInitWindow(QWidget):
             self.cb_waybar.setEnabled(False)
             self.cb_waybar.setToolTip("Waybar not detected on system")
         self.layout.addWidget(self.cb_waybar)
+        #Hyprland detection
+        
 
+        # Connect checkbox toggle to enable/disable keybind input
+        self.cb_hyprland = QCheckBox("Integrate with Hyprland")
+        self.cb_hyprland.setToolTip("Add Keybinds for Hyprland(experimental)")
+        if not self.is_hyprland_installed():
+            self.cb_hyprland.setEnabled(False)
+            self.cb_hyprland.setToolTip("Hyprland not detected on system")
+        self.layout.addWidget(self.cb_hyprland)
+        self.keybind_input = QLineEdit()
+        self.keybind_input.setPlaceholderText("Enter keybind like SUPER,H")
+        self.keybind_input.setEnabled(False)  # Initially disabled
+        self.layout.addWidget(self.keybind_input)
+        self.cb_hyprland.stateChanged.connect(self.toggle_keybind_input)
+        
         # Save button
         self.btn_save = QPushButton("Finish Setup")
         self.btn_save.clicked.connect(self.save_config_and_launch)
         self.layout.addWidget(self.btn_save)
         self.label = QLabel("Important\n\tmin.sh is at /usr/bin/hyprhide-min\n\tYou should either bind it to a \n\t\tkeybind, or create another way to trigger it")
         self.layout.addWidget(self.label)
+    def toggle_keybind_input(self, state):
+        print("HELLI",state)
+        self.keybind_input.setEnabled(state == 2)
     def is_waybar_installed(self):
         return any(os.access(os.path.join(path, "waybar"), os.X_OK) for path in os.environ["PATH"].split(os.pathsep))
+    def is_hyprland_installed(self):
+        return os.path.exists(os.path.expanduser("~/.config/hypr/hyprland.conf"))
+    def install_into_hyprland(self):
+        hyprcfg = os.path.expanduser("~/.config/hypr/hyprland.conf")
+        data = ""
+        with open(hyprcfg,"r") as hypr_file:
+            data = hypr_file.read()
+            if(self.keybind_input.isEnabled() == True):
+                if("," in self.keybind_input.text()):
+                    line = f"bind = {self.keybind_input.text()},exec,hyprhide-min"
+                else:
+                    line = f"bind = SUPER,H,exec,hyprhide-min"
+            data = data+"\n"+line
+        with open(hyprcfg,"w") as hypr_file:
+            hypr_file.write(data)
+        os.system("hyprctl")
     def install_into_waybar(self):
-        waybar_cfg = os.path.expanduser("~/.config/waybar/config")
+        waybar_cfg = os.path.expanduser("~/.config/hypr/config")
         waybar_modules_c = os.path.expanduser("~/.config/waybar/modules/modules-custom.json ")
         if(os.path.exists(waybar_cfg) != True or s.path.exists(waybar_modules_c) != True):
             return -1
@@ -498,6 +532,8 @@ class HyprHideAppInitWindow(QWidget):
             config.write(cfgfile)
         if(self.cb_waybar.isChecked() == True):
             self.install_into_waybar()
+        if(self.cb_hyprland.isChecked() ==  True):
+            self.install_into_hyprland()
         self.close()
         self.main_app = HyprHideApp()
         self.main_app.position_near_mouse()
