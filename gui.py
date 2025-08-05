@@ -18,15 +18,51 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
 
 HIDE_DIR = os.path.expanduser("~/.local/share/hypr-hide")
+        
 
 
+def get_hyprctl_clients():
+    try:
+        # Run hyprctl clients -j and capture output
+        result = subprocess.run(['hyprctl', 'clients', '-j'], capture_output=True, text=True, check=True)
+        
+        # Parse the output as JSON
+        clients = json.loads(result.stdout)
+        
+        return clients
+    except subprocess.CalledProcessError as e:
+        print(f"Error running hyprctl: {e}")
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON: {e}")
+    
+    return []
+
+def get_client_by_address(address):
+    try:
+        # Run hyprctl clients -j
+        result = subprocess.run(['hyprctl', 'clients', '-j'], capture_output=True, text=True, check=True)
+        clients = json.loads(result.stdout)
+
+        # Search for the client with the given address
+        for client in clients:
+            if client.get("address") == address:
+                return client
+
+        print(f"No client found with address: {address}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error running hyprctl: {e}")
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON: {e}")
+
+    return None
 class HiddenWindowItem(QWidget):
-    def __init__(self, address, title, app_class, x, y, workspace):
+    def __init__(self, address, title, app_class, x, y, workspace,was_floating):
         super().__init__()
         self.address = address
         self.x = x
         self.y = y
         self.workspace = workspace
+        self.was_floating = was_floating
         self.title = title
         self.app_class = app_class
 
@@ -151,9 +187,21 @@ class HiddenWindowItem(QWidget):
                 return
 
         self.run_cmd("hyprctl dispatch togglefloating")
+        self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace}")
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
         self.run_cmd("hyprctl dispatch togglefloating")
-
+        client_data = get_client_by_address(self.address)
+        if(self.was_floating == client_data['floating']):
+            pass
+        else:
+            self.run_cmd("hyprctl dispatch togglefloating")
+            # while(self.x !=client_data['at'][0] and self.y != client_data['at'][0]):
+            print(f"Window disired pos: {self.x}:{self.y} vs {client_data['at'][0]}:{client_data['at'][1]}")
+            self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace}")
+            success = self.cycle_until_focused(self.address)
+            if(success):
+                self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
+                # client_data = get_client_by_address(self.address)
         json_path = os.path.join(HIDE_DIR, f"{self.address}.json")
         try:
             os.remove(json_path)
@@ -219,7 +267,8 @@ class HyprHideApp(QWidget):
                             app_class=data['class'],
                             x=data['at'][0],
                             y=data['at'][1],
-                            workspace=data['workspace']['id']
+                            workspace=data['workspace']['id'],
+                            was_floating=data['floating']
                         )
                         self.content_layout.addWidget(item)
                 except Exception as e:
@@ -243,10 +292,43 @@ class HyprHideApp(QWidget):
 
         self.move(x, y)
 
+def safety_check_generate_missing_json_files():
+    threshold = 300  # pixels around (5000, 5000)
+    try:
+        output = subprocess.check_output(["hyprctl", "clients", "-j"], text=True)
+        clients = json.loads(output)
 
+        for client in clients:
+            addr = client.get("address")
+            x, y = client.get("at", [0, 0])
+            title = client.get("title", "Unknown")
+            app_class = client.get("class", "Unknown")
+            workspace = client.get("workspace", {}).get("id", 1)
+
+            json_path = os.path.join(HIDE_DIR, f"{addr}.json")
+            if os.path.exists(json_path):
+                continue
+
+            # Check if window is near (5000, 5000)
+            if abs(x - 5000) < threshold and abs(y - 5000) < threshold:
+                os.makedirs(HIDE_DIR, exist_ok=True)
+                data = {
+                    "address": addr,
+                    "title": title,
+                    "class": app_class,
+                    "at": [x, y],
+                    "workspace": {"id": workspace}
+                }
+                with open(json_path, "w") as f:
+                    json.dump(data, f, indent=2)
+                print(f"[Safety Check] Created rudimentary file for: {addr}")
+
+    except Exception as e:
+        print(f"[Safety Check] Failed to check or create json: {e}")
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+    safety_check_generate_missing_json_files()
     window = HyprHideApp()
     window.show()
     sys.exit(app.exec())
