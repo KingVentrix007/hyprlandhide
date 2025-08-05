@@ -293,35 +293,41 @@ class HyprHideApp(QWidget):
         self.move(x, y)
 
 def safety_check_generate_missing_json_files():
-    threshold = 300  # pixels around (5000, 5000)
+    threshold = 900  # pixels around (5000, 5000)
     try:
         output = subprocess.check_output(["hyprctl", "clients", "-j"], text=True)
         clients = json.loads(output)
-
-        for client in clients:
+        far_clients = [
+        c for c in clients
+            if c["at"][0] > 5000 or c["at"][1] > 5000
+        ]
+        for client in far_clients:
             addr = client.get("address")
             x, y = client.get("at", [0, 0])
             title = client.get("title", "Unknown")
             app_class = client.get("class", "Unknown")
             workspace = client.get("workspace", {}).get("id", 1)
+            floating = client.get("floating", False)
+
 
             json_path = os.path.join(HIDE_DIR, f"{addr}.json")
             if os.path.exists(json_path):
                 continue
 
             # Check if window is near (5000, 5000)
-            if abs(x - 5000) < threshold and abs(y - 5000) < threshold:
-                os.makedirs(HIDE_DIR, exist_ok=True)
-                data = {
-                    "address": addr,
-                    "title": title,
-                    "class": app_class,
-                    "at": [x, y],
-                    "workspace": {"id": workspace}
-                }
-                with open(json_path, "w") as f:
-                    json.dump(data, f, indent=2)
-                print(f"[Safety Check] Created rudimentary file for: {addr}")
+            os.makedirs(HIDE_DIR, exist_ok=True)
+            data = {
+                "address": addr,
+                "title": title,
+                "class": app_class,
+                "at": [x, y],
+                "workspace": {"id": workspace},
+                "floating":floating
+            }
+            print(data)
+            with open(json_path, "w") as f:
+                json.dump(data, f, indent=2)
+            print(f"[Safety Check] Created rudimentary file for: {addr}")
 
     except Exception as e:
         print(f"[Safety Check] Failed to check or create json: {e}")
