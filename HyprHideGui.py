@@ -6,7 +6,9 @@ import subprocess
 import time
 import sys
 import signal
-
+JUMP_TO_MOUSE = False
+X_OFFEST = -400
+Y_OFFSET = 160
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QCursor
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
@@ -142,7 +144,7 @@ class HiddenWindowItem(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.on_restore_clicked()
-
+            self.exit()
     def run_cmd(self, cmd):
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         return result.stdout.strip(), result.stderr.strip(), result.returncode
@@ -316,8 +318,15 @@ class HyprHideApp(QWidget):
         x = min(pos.x(), screen.width() - win_width)
         y = min(pos.y() + 20, screen.height() - win_height)
         print(f"Moving mouse to {x},{y}")
+        if JUMP_TO_MOUSE == True:
+            if(pos.x()+X_OFFEST > win_width or pos.x()+X_OFFEST < 0):
+                # break
+                pass
+            elif(pos.y()+Y_OFFEST > win_height or pos.y()+Y_OFFEST < 0):
+                # break
+                pass
         # self.run_cmd(f"hyprctl dispatch moveactive {x} {y}")
-        result = subprocess.run(f"hyprctl dispatch moveactive {pos.x()-400} {pos.y()+160}", shell=True, capture_output=True, text=True)
+            result = subprocess.run(f"hyprctl dispatch moveactive {pos.x()+X_OFFEST} {pos.y()+Y_OFFSET}", shell=True, capture_output=True, text=True)
         # return result.stdout.strip(), result.stderr.strip(), result.returncode
         self.move(x, y)
 
