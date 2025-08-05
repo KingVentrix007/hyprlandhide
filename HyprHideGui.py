@@ -315,7 +315,10 @@ class HyprHideApp(QWidget):
 
         x = min(pos.x(), screen.width() - win_width)
         y = min(pos.y() + 20, screen.height() - win_height)
-
+        print(f"Moving mouse to {x},{y}")
+        # self.run_cmd(f"hyprctl dispatch moveactive {x} {y}")
+        result = subprocess.run(f"hyprctl dispatch moveactive {pos.x()-400} {pos.y()+160}", shell=True, capture_output=True, text=True)
+        # return result.stdout.strip(), result.stderr.strip(), result.returncode
         self.move(x, y)
 
 
@@ -363,5 +366,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     safety_check_generate_missing_json_files()
     window = HyprHideApp()
+    # Immediately move near mouse
+    window.position_near_mouse()
     window.show()
     sys.exit(app.exec())
