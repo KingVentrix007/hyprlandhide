@@ -311,8 +311,8 @@ def safety_check_generate_missing_json_files():
 
 
             json_path = os.path.join(HIDE_DIR, f"{addr}.json")
-            # if os.path.exists(json_path):
-            #     continue
+            if os.path.exists(json_path):
+                continue
 
             # Check if window is near (5000, 5000)
             os.makedirs(HIDE_DIR, exist_ok=True)
