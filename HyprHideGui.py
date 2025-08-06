@@ -8,6 +8,7 @@ import sys
 import signal
 import configparser
 import commentjson
+import argparse
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QCursor
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
@@ -699,7 +700,15 @@ class HyprHideAppInitWindow(QWidget):
         self.main_app.show()
 
 if __name__ == "__main__":
-    first_run = config.get("INIT","first",fallback=True)
+   
+    parser = argparse.ArgumentParser(description="HyprHide Application")
+    parser.add_argument("--reset", action="store_true", help="Reset initial setup")
+
+    args = parser.parse_args()
+    if args.reset:
+         
+         config.set("INIT", "first", "True")
+    first_run = config.getboolean("INIT","first",fallback=True)
     if(first_run == True):
         app = QApplication(sys.argv)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
