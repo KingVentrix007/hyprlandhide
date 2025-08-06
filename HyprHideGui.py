@@ -19,18 +19,16 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from PyQt6.QtWidgets import QLineEdit, QGridLayout
-VERSION = "1.1.1"
+VERSION = "1.9.8"
 
 config = configparser.ConfigParser()
 user_config_path = os.path.expanduser("~/.config/hyprhide/config.cfg")
-default_config_path = "/usr/share/hyprhide/config.cfg"
+# default_config_path = "/usr/share/hyprhide/config.cfg"
 
 if os.path.exists(user_config_path):
     config.read(user_config_path)
-elif os.path.exists(default_config_path):
-    config.read(default_config_path)
-elif os.path.exists("config.cfg"):
-    config.read("config.cfg")
+# elif os.path.exists(default_config_path):
+#     config.read(default_config_path)
 else:
     print("Please create a config.cfg file, or install this properly ")
 
@@ -583,6 +581,30 @@ class HyprHideAppInitWindow(QWidget):
 
         main_layout.addWidget(integration_group)
 
+        # --- Developer Settings (collapsed by default) ---
+        self.dev_group = QGroupBox("Developer Settings")
+        self.dev_group.setCheckable(True)
+        self.dev_group.setChecked(False)
+        self.dev_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+
+        dev_layout = QVBoxLayout()
+        self.dev_group.setLayout(dev_layout)
+
+        # Developer mode checkbox
+        self.cb_developer_mode = QCheckBox("Enable Developer Mode")
+        self.cb_developer_mode.setToolTip("Runs local development Python script instead of installed binary")
+        self.cb_developer_mode.stateChanged.connect(self.toggle_dev_path_option)
+        dev_layout.addWidget(self.cb_developer_mode)
+
+        # Developer script path input
+        self.dev_path_input = QLineEdit()
+        self.dev_path_input.setPlaceholderText("Path to local Python script (e.g. ./dev/main.py)")
+        self.dev_path_input.setToolTip("Dev runner will expand local paths")
+        self.dev_path_input.setEnabled(False)  # Initially disabled
+        dev_layout.addWidget(self.dev_path_input)
+
+        main_layout.addWidget(self.dev_group)
+        
         # Spacer to push buttons to bottom
         main_layout.addStretch()
 
@@ -601,6 +623,8 @@ class HyprHideAppInitWindow(QWidget):
         info_label = QLabel(info_text)
         info_label.setStyleSheet("font-weight: normal;")
         # main_layout.addWidget(info_label)
+    def toggle_dev_path_option(self,state):
+        self.dev_path_input.setEnabled(state == 2)
     def toggle_keybind_input(self, state):
         print("HELLI",state)
         self.keybind_input.setEnabled(state == 2)
@@ -687,13 +711,22 @@ class HyprHideAppInitWindow(QWidget):
         }
         config["WAYBAR"] = {"ENABLED": str(self.cb_waybar.isChecked())}
 
-        with open(user_config_path, "w") as cfgfile:
-            config.write(cfgfile)
+        
         if(self.cb_waybar.isChecked() == True):
             print("Installing")
             self.install_into_waybar()
         if(self.cb_hyprland.isChecked() ==  True):
             self.install_into_hyprland()
+        if self.cb_developer_mode.isChecked() == True:
+            if not config.has_section("DEV"):
+                config.add_section("DEV")
+            print("Setting this")
+            config.set("DEV","devmode",'True')
+            deb_path = self.dev_path_input.text()
+            config.set("DEV","hyprhide_src",deb_path)
+            print(config.get("DEV","devmode",fallback="Know it"))
+        with open(user_config_path, "w") as cfgfile:
+            config.write(cfgfile)
         self.close()
         self.main_app = HyprHideApp()
         self.main_app.position_near_mouse()
@@ -703,11 +736,16 @@ if __name__ == "__main__":
    
     parser = argparse.ArgumentParser(description="HyprHide Application")
     parser.add_argument("--reset", action="store_true", help="Reset initial setup")
-
+    parser.add_argument("--launched", action="store_true", help="Used internally")
+    parser.add_argument("--set-version", type=str, help="Specify the version")
+    
     args = parser.parse_args()
+    VERSION = args.set_version
+    if(args.launched != True):
+        exit()
     if args.reset:
          
-         config.set("INIT", "first", "True")
+         config.set("INIT", "first", True)
     first_run = config.getboolean("INIT","first",fallback=True)
     if(first_run == True):
         app = QApplication(sys.argv)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copy source files
-cp /mnt/MyCodeProjects/hyprlandhide/{PKGBUILD,LICENSE,min.sh,HyprHideGui.py,config.cfg,min.py} ~/aur-hyprhide/
+cp /mnt/MyCodeProjects/hyprlandhide/{PKGBUILD,LICENSE,min.sh,HyprHideGui.py,config.cfg,min.py,version.txt} ~/aur-hyprhide/
 
 # Check if the install flag is passed
 if [[ "$1" == "--install-release" ]]; then
