@@ -21,6 +21,26 @@
 ---
 
 ### ⚙️ Setup
+## 📦 AUR Installation
+
+If you're on an Arch-based system, you can install **HyprHide** directly from the AUR:
+
+```bash
+yay -S hyprhide
+```
+
+Then, launch the GUI with:
+
+```bash
+hyprhide-gui
+```
+
+> ✅ This installs all dependencies and sets up `hyprhide-gui` as a runnable command.
+
+---
+
+.
+
 #### 🔧 Full Installation
 
 1. Clone the repository:
@@ -32,16 +52,20 @@
 2. Navigate to the build directory:
 
    ```bash
-   cd hyprlandhide/HyprHide
+   cd hyprlandhide
    ```
-
-3. Build and install the package:
+3. Make script executable
 
    ```bash
-   makepkg -si
+   chmod +x ./run.sh
+   ```
+4. Build and install the package:
+
+   ```bash
+   ./run.sh
    ```
 
-4. Launch the GUI:
+5. Launch the GUI:
 
    ```bash
    hyprhide-gui
@@ -119,3 +143,9 @@
 * Better tracking of window state (floating/tiling)
 * More accurate positioning on restore
 * Persistent metadata storage for full layout memory
+
+
+Here's your updated `README.md` content with the new **📦 AUR Installation** section:
+
+---
+
