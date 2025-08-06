@@ -1,5 +1,6 @@
 import os
 import subprocess
+import json
 def get_clients():
     try:
         # Run hyprctl clients -j and capture output
@@ -33,7 +34,18 @@ def get_client_info(address:str):
         print(f"Error decoding JSON: {e}")
 
 def get_active_window():
-    
+        out, _, _ = os.system("hyprctl activewindow -j")
+        try:
+            j = json.loads(out)
+            return j.get("address", "")
+        except Exception:
+            return ""
 
-def set_active_client(address):
-    os.system(f"hyprctl dispatch focuswindow address:{address}")
+def set_active_client(address,max_count = 10):
+    count = 0
+    while(get_active_window() != address and count < max_count):
+        os.system(f"hyprctl dispatch focuswindow address:{address}")
+        count+=1
+    if(count >= max_count):
+        return False
+    return True
