@@ -219,6 +219,8 @@ class HiddenWindowItem(QWidget):
             self.run_cmd("hyprctl dispatch togglefloating")
         self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace}")
         focused = self.get_focused_window()
+        self.run_cmd(f"hyprctl dispatch focuswindow address:{self.address}")
+        focused = self.get_focused_window()
         if focused != self.address:
             max_tries = len(self.get_hyprctl_clients())
             success = self.cycle_until_focused(self.address,max_tries=max_tries)
