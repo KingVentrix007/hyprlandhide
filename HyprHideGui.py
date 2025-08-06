@@ -524,34 +524,53 @@ class HyprHideAppInitWindow(QWidget):
             hypr_file.write(data)
         os.system("hyprctl")
     def install_into_waybar(self):
-        waybar_cfg = os.path.expanduser("~/.config/hypr/config")
-        waybar_modules_c = os.path.expanduser("~/.config/waybar/modules/modules-custom.json ")
-        if(os.path.exists(waybar_cfg) != True or s.path.exists(waybar_modules_c) != True):
+        waybar_cfg = os.path.expanduser("~/.config/waybar/config")
+        waybar_modules_c = os.path.expanduser("~/.config/waybar/modules/modules-custom.jsonc")
+
+        if not os.path.exists(waybar_cfg):
+            print(f"Broken: No cfg at {waybar_cfg}")
             return -1
-        else:
-            with open(waybar_cfg, "r") as waybar_cfg:
-                waybar_json = json.load(waybar_cfg)
+        if not os.path.exists(waybar_modules_c):
+            print(f"Broken: No modules at {waybar_modules_c}")
+            return -1
 
-            modules_right = waybar_json['modules-right']
-            modules_first = modules_right[0]
-            modules_second_to_end = modules_right[1:]
+        print("Install")
 
-            # Create new modules list with "custom/hyprhide" inserted second
-            new_mod = [modules_first, "custom/hyprhide"] + modules_second_to_end
+        # Use commentjson to load config with comments/trailing commas
+        with open(waybar_cfg, "r") as waybar_cfg_file:
+            waybar_json = commentjson.load(waybar_cfg_file)
 
-            # Update the JSON structure
-            waybar_json['modules-right'] = new_mod
+        modules_right = waybar_json.get('modules-right', [])
+        if not modules_right:
+            print("No modules-right found in waybar config")
+            return -1
 
-            # Write the updated JSON back to the file
-            with open(waybar_cfg, "w") as waybar_cfg:
-                json.dump(waybar_json, waybar_cfg, indent=4)
-            waybar_modules_c_json = commentjson.load(open(waybar_modules_c))
-            waybar_modules_c_json['custom/hyprhide'] = {
-            "exec": "echo '🗔'",  # This will be the button label (icon)
+        modules_first = modules_right[0]
+        modules_second_to_end = modules_right[1:]
+
+        # Insert custom module second in list
+        new_mod = [modules_first, "custom/hyprhide"] + modules_second_to_end
+        waybar_json['modules-right'] = new_mod
+
+        # Write updated config back (using commentjson.dump to preserve JSONC style)
+        with open(waybar_cfg, "w") as waybar_cfg_file:
+            commentjson.dump(waybar_json, waybar_cfg_file, indent=4)
+
+        # Load modules-custom.jsonc
+        with open(waybar_modules_c, "r") as mod_file:
+            waybar_modules_c_json = commentjson.load(mod_file)
+
+        # Add your custom/hyprhide module config
+        waybar_modules_c_json['custom/hyprhide'] = {
+            "exec": "echo '🗔'",  # Button label (icon)
             "interval": 0,
-            "on-click": "python3 usr/bin/hyprhide-gui",
+            "on-click": "python3 /usr/bin/hyprhide-gui",
             "tooltip-format": "Press to see all hidden windows"
         }
+
+        # Write updated modules-custom.jsonc back
+        with open(waybar_modules_c, "w") as mod_file:
+            commentjson.dump(waybar_modules_c_json, mod_file, indent=4)
 
     def save_config_and_launch(self):
         os.makedirs(os.path.dirname(user_config_path), exist_ok=True)
@@ -568,6 +587,7 @@ class HyprHideAppInitWindow(QWidget):
         with open(user_config_path, "w") as cfgfile:
             config.write(cfgfile)
         if(self.cb_waybar.isChecked() == True):
+            print("Installing")
             self.install_into_waybar()
         if(self.cb_hyprland.isChecked() ==  True):
             self.install_into_hyprland()
