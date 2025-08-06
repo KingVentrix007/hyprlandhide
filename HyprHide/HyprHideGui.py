@@ -18,6 +18,8 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from PyQt6.QtWidgets import QLineEdit, QGridLayout
+VERSION = "1.1.1"
+
 config = configparser.ConfigParser()
 user_config_path = os.path.expanduser("~/.config/hyprhide/config.cfg")
 default_config_path = "/usr/share/hyprhide/config.cfg"
@@ -200,16 +202,24 @@ class HiddenWindowItem(QWidget):
         focused = self.get_focused_window()
         if focused != self.address:
             print("Direct focus failed, cycling to locate window...")
-            success = self.cycle_until_focused(self.address)
+            max_tries = len(self.get_hyprctl_clients())
+            success = self.cycle_until_focused(self.address,max_tries=max_tries)
             if not success:
                 print("Failed to focus window after cycling")
                 return
-
-        self.run_cmd("hyprctl dispatch togglefloating")
+        client_data = get_client_by_address(self.address)
+        if(client_data['floating'] == False):
+            self.run_cmd("hyprctl dispatch togglefloating")
         self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace}")
+        focused = self.get_focused_window()
+        if focused != self.address:
+            max_tries = len(self.get_hyprctl_clients())
+            success = self.cycle_until_focused(self.address,max_tries=max_tries)
+            if not success:
+                print("Failed to focus window after cycling")
+                return
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
         self.run_cmd("hyprctl dispatch togglefloating")
-        client_data = get_client_by_address(self.address)
         if(self.was_floating == client_data['floating']):
             pass
         else:
@@ -240,7 +250,7 @@ class HiddenWindowItem(QWidget):
 class HyprHideApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Hidden Windows")
+        self.setWindowTitle(f"HyprHide {VERSION}")
         self.setFixedSize(460, 500)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         self.setWindowFlag(Qt.WindowType.Tool)
@@ -345,6 +355,33 @@ class HyprHideApp(QWidget):
             result = subprocess.run(f"hyprctl dispatch moveactive {pos.x()+X_OFFEST} {pos.y()+Y_OFFSET}", shell=True, capture_output=True, text=True)
         # return result.stdout.strip(), result.stderr.strip(), result.returncode
         self.move(x, y)
+
+
+def insure_no_leftover_file():
+    directory = HIDE_DIR
+    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+
+    json_files = []
+    for f in files:
+        _, extension = os.path.splitext(f)
+        if extension == '.json':
+            json_files.append(f)
+
+    clients = get_hyprctl_clients()
+    client_files = [f"{i['address']}.json" for i in clients]
+
+    for jf in json_files:
+        if jf not in client_files:
+            # Delete JSON file
+            json_path = os.path.join(HIDE_DIR, jf)
+            os.remove(json_path)
+
+            # Delete corresponding PNG file
+            name, _ = os.path.splitext(jf)
+            png_path = os.path.join(HIDE_DIR, f"{name}.png")
+            if os.path.exists(png_path):
+                os.remove(png_path)
+
 
 
 def safety_check_generate_missing_json_files():
@@ -554,6 +591,7 @@ if __name__ == "__main__":
 
         app = QApplication(sys.argv)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
+        insure_no_leftover_file()
         safety_check_generate_missing_json_files()
         window = HyprHideApp()
         # Immediately move near mouse
