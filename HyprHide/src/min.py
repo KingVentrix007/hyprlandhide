@@ -1,0 +1,1 @@
+/mnt/MyCodeProjects/hyprlandhide/HyprHide/min.py

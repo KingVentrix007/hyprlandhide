@@ -3,14 +3,15 @@
 pkgname = hyprhide
 pkgbase = hyprhide
 xdata = pkgtype=pkg
-pkgver = 1.0-1
+pkgver = 1.2-1
 pkgdesc = A tool for hiding and showing windows in Hyprland using a PyQt6 GUI
 url = https://github.com/KingVentrix007/hyprlandhide
-builddate = 1754418433
+builddate = 1754459589
 packager = Unknown Packager
-size = 23392
+size = 27094
 arch = any
 license = MIT
 depend = python
 depend = python-pyqt6
 depend = hyprland
+depend = python-commentjson

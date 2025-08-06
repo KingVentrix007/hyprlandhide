@@ -103,6 +103,7 @@
 
   * Floating windows may restore as **tiled** if the workspace is in tiling mode
   * Restored windows may be auto-resized or moved
+  * Sometimes windows that where **tiled** restore to floating. Under investigation
 
 #### ↩️ Inconsistent Restore Behavior
 
