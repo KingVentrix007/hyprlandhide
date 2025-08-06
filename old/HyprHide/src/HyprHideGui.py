@@ -1,1 +1,0 @@
-/mnt/MyCodeProjects/hyprlandhide/HyprHide/HyprHideGui.py
