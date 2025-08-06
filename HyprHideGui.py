@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,QCheckBox,QPushButton
 )
 from PyQt6.QtCore import (
-    Qt, QTimer, QPropertyAnimation, QEasingCurve
+    Qt, QTimer, QPropertyAnimation, QEasingCurve,pyqtSignal
 )
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from PyQt6.QtWidgets import QLineEdit, QGridLayout
@@ -77,6 +77,7 @@ def get_client_by_address(address):
 
     return None
 class HiddenWindowItem(QWidget):
+    restore_complete = pyqtSignal()
     def __init__(self, address, title, app_class, x, y, workspace,was_floating):
         super().__init__()
         self.address = address
@@ -162,7 +163,9 @@ class HiddenWindowItem(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.on_restore_clicked()
-            self.exit()
+            self.close()
+            
+
     def run_cmd(self, cmd):
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         return result.stdout.strip(), result.stderr.strip(), result.returncode
@@ -190,9 +193,10 @@ class HiddenWindowItem(QWidget):
         addr = self.address
         if addr.startswith("0x"):
             addr = addr[2:]
-
+        client_data = get_client_by_address(self.address)
         print(f"Restoring window {self.title} at {self.x},{self.y} on workspace {self.workspace}")
-
+        print(f"Window floating state = {self.was_floating}")
+        window_floating_state_before_move = self.was_floating
         self.run_cmd(f"hyprctl dispatch workspace {self.workspace}")
         time.sleep(0.3)
 
@@ -205,9 +209,13 @@ class HiddenWindowItem(QWidget):
             max_tries = len(self.get_hyprctl_clients())
             success = self.cycle_until_focused(self.address,max_tries=max_tries)
             if not success:
-                print("Failed to focus window after cycling")
+                check_client = get_client_by_address(self.address)
+                if(check_client == None):
+                    print("Failed to focus window after cycling")
+                else:
+                    print("Okay, so what no")
                 return
-        client_data = get_client_by_address(self.address)
+        
         if(client_data['floating'] == False):
             self.run_cmd("hyprctl dispatch togglefloating")
         self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace}")
@@ -216,6 +224,7 @@ class HiddenWindowItem(QWidget):
             max_tries = len(self.get_hyprctl_clients())
             success = self.cycle_until_focused(self.address,max_tries=max_tries)
             if not success:
+                
                 print("Failed to focus window after cycling")
                 return
         self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
@@ -228,8 +237,8 @@ class HiddenWindowItem(QWidget):
             print(f"Window disired pos: {self.x}:{self.y} vs {client_data['at'][0]}:{client_data['at'][1]}")
             self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace}")
             success = self.cycle_until_focused(self.address)
-            if(success):
-                self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
+            # if(success):
+            #     self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
                 # client_data = get_client_by_address(self.address)
         json_path = os.path.join(HIDE_DIR, f"{self.address}.json")
         try:
@@ -245,7 +254,17 @@ class HiddenWindowItem(QWidget):
             print(f"Failed to remove screenshot {img_path}: {e}")
 
         print("Restore complete.")
+        check_state_c = get_client_by_address(self.address)
+        window_floating_state_after_move = check_state_c['floating']
+        if(window_floating_state_after_move == window_floating_state_before_move):
+            print("I did this right")
+            pass
+        else:
+            
+            self.run_cmd("hyprctl dispatch togglefloating")
+        print(f"Window floating state = {check_state_c['floating']}")
 
+        self.restore_complete.emit()
 
 class HyprHideApp(QWidget):
     def __init__(self):
@@ -312,6 +331,7 @@ class HyprHideApp(QWidget):
                             workspace=data['workspace']['id'],
                             was_floating=data['floating']
                         )
+                        item.restore_complete.connect(self.close) 
                         self.window_items.append(item)
                         self.grid_layout.addWidget(item, row, col)
                         col += 1
@@ -320,7 +340,8 @@ class HyprHideApp(QWidget):
                             col = 0
                 except Exception as e:
                     print(f"Error loading {file}: {e}")
-
+        self.close()
+        
     def filter_items(self, text):
         text = text.lower()
         for i in range(self.grid_layout.count()):
