@@ -3,14 +3,17 @@
 # Copy source files
 cp /mnt/MyCodeProjects/hyprlandhide/{PKGBUILD,LICENSE,min.sh,HyprHideGui.py,HyprHideDev.py,config.cfg,min.py,version.txt} ~/aur-hyprhide/
 
+# Replace pkgver in PKGBUILD with version.txt
+VERSION=$(< /mnt/MyCodeProjects/hyprlandhide/version.txt)
+sed -i "s/^pkgver=.*/pkgver=$VERSION/" ~/aur-hyprhide/PKGBUILD
+
 # Check if the install flag is passed
 if [[ "$1" == "--install-release" ]]; then
     COMMIT_MSG="$2"
 
-    # If no commit message is provided
     if [[ -z "$COMMIT_MSG" ]]; then
         echo "❌ Error: Please provide a commit message like:"
-        echo "./publish.sh --install-release \"Update for v1.1\""
+        echo "./publish.sh --install-release \"Update for v$VERSION\""
         exit 1
     fi
 
