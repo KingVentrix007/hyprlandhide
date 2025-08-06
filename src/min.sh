@@ -1,0 +1,1 @@
+/mnt/MyCodeProjects/hyprlandhide/min.sh
