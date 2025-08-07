@@ -64,6 +64,25 @@ def move_window_local(address, target_x, target_y):
 def toggle_floating(address):
     _run_command(f"hyprctl dispatch togglefloating address:{address}")
 
+def set_floating(address):
+    window_data = get_client_info(address=address)
+    is_floating = window_data['floating']
+    if(is_floating == False):
+        toggle_floating(address=address)
+        window_data = get_client_info(address=address)
+        return window_data['floating'] == True
+    else:
+        return True
+def set_tiling(address):
+    window_data = get_client_info(address=address)
+    is_floating = window_data['floating']
+    if(is_floating == True):
+        toggle_floating(address=address)
+        window_data = get_client_info(address=address)
+        return window_data['floating'] == False
+    else:
+        return True
+
 def set_current_workspace(workspace:int):
     _run_command(f"hyprctl dispatch workspace {workspace}")
 
