@@ -225,7 +225,8 @@ def get_focused_monitor_geometry():
 class HyprHideApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"HyprHide {VERSION}")
+        self.title = f"HyprHide {VERSION}"
+        self.setWindowTitle(self.title)
         self.setFixedSize(460, 500)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         self.setWindowFlag(Qt.WindowType.Tool)
@@ -256,7 +257,7 @@ class HyprHideApp(QWidget):
         self.window_items = []
         self.load_hidden_windows()
 
-        QTimer.singleShot(10, self.position_near_mouse)
+        # QTimer.singleShot(10, self.position_near_mouse)
 
     def load_hidden_windows(self):
         self.window_items.clear()
@@ -309,9 +310,9 @@ class HyprHideApp(QWidget):
         QApplication.quit()
 
     def position_near_mouse(self):
-        if not self.isVisible():
-            QTimer.singleShot(10, self.position_near_mouse)
-            return
+        # if not self.isVisible():
+        #     QTimer.singleShot(10, self.position_near_mouse)
+        #     return
 
         pos = QCursor.pos()  # Global mouse pos
         monitor = get_focused_monitor_geometry()
@@ -335,15 +336,23 @@ class HyprHideApp(QWidget):
             adjusted_x = max(monitor["x"], min(adjusted_x, monitor["x"] + monitor["width"] - win_width))
             adjusted_y = max(monitor["y"], min(adjusted_y, monitor["y"] + monitor["height"] - win_height))
 
-            print(f"Monitor bounds: {monitor}")
-            print(f"Adjusted X: {adjusted_x}, Adjusted Y: {adjusted_y}")
-            print(f"Moving screen to {adjusted_x},{adjusted_y}")
-            print(f"Mouse at {mouse_x},{mouse_y}")
+            # print(f"Monitor bounds: {monitor}")
+            # print(f"Adjusted X: {adjusted_x}, Adjusted Y: {adjusted_y}")
+            # print(f"Moving screen to {adjusted_x},{adjusted_y}")
+            # print(f"Mouse at {mouse_x},{mouse_y}")
 
-            result = subprocess.run(f"hyprctl dispatch moveactive {adjusted_x} {adjusted_y}",
-                                    shell=True, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"hyprctl error: {result.stderr}")
+            # result = subprocess.run(f"hyprctl dispatch moveactive {adjusted_x} {adjusted_y}",
+            #                         shell=True, capture_output=True, text=True)
+            # if result.returncode != 0:
+            #     print(f"hyprctl error: {result.stderr}")
+            hyprhide_window = hyprland_interface.get_window_by_class_and_title(title=self.title,class_in="python3")
+            address_to_use = hyprhide_window['address']
+            active_workspace = hyprland_interface.get_active_workspace_id()
+            # hyprland_interface.move_win_to_workspace(address_to_use,active_workspace)
+            # hyprland_interface.set_current_workspace(active_workspace)
+            print("Move to mouse")
+            # active_workspace = hyprland_interface.get_active_workspace_id()
+            hyprland_interface.move_window_global(address_to_use,pos.x(),pos.y(),active_workspace)
 
 
 def insure_no_leftover_file():

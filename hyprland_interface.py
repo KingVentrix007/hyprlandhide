@@ -36,14 +36,18 @@ def get_active_window():
     except Exception as e:
         print(f"Error getting active window: {e}")
         return ""
-
+def get_window_by_class_and_title(title,class_in):
+    clients = get_clients()
+    for client in clients:
+        if client.get("title") == title and client.get("class") == class_in:
+            return client
 def set_active_client(address, max_count=10):
     count = 0
-    while get_active_window() != address and count < max_count:
-        _run_command(f"hyprctl dispatch focuswindow address:{address}")
-        time.sleep(0.05)  # tiny wait
-        count += 1
-    return count < max_count
+    # while get_active_window() != address and count < max_count:
+    _run_command(f"hyprctl dispatch focuswindow address:{address}")
+        # time.sleep(0.05)  # tiny wait
+        # count += 1
+    # return count < max_count
 
 def move_window_local(address, target_x, target_y):
     info = get_client_info(address)
@@ -56,9 +60,32 @@ def move_window_local(address, target_x, target_y):
     dy = target_y - current_pos[1]
 
     print(f"Moving window by offset dx={dx}, dy={dy}")
-    _run_command(f"hyprctl dispatch movewindowpixel {dx} {dy} address:{address}")
+    set_floating(address=address)
+    _run_command(f"hyprctl dispatch movewindowpixel {dx} {dy}, address:{address}")
     new_info =  get_client_info(address)
     pos = info.get("at", [0, 0])
+    print(f"Window position: {pos[0]}:{pos[1]}")
+
+def move_window_global(address, target_x, target_y,workspace_id):
+    info = get_client_info(address)
+    if not info:
+        print("Could not get window info.")
+        return
+
+    current_pos = info.get("at", [0, 0])
+    dx = target_x - current_pos[0]
+    dy = target_y - current_pos[1]
+
+    print(f"Moving window by offset dx={dx}, dy={dy}")
+    set_floating(address=address)
+    print("workspace_id",workspace_id)
+    set_active_client(address=address)
+    move_win_to_workspace(address,workspace_id)
+    # set_current_workspace(workspace_id)
+    _run_command(f"hyprctl dispatch movewindowpixel {dx} {dy}, address:{address}")
+    new_info =  get_client_info(address)
+    pos = info.get("at", [0, 0])
+    print(f"Window workspace: {new_info.get('workspace')}")
     print(f"Window position: {pos[0]}:{pos[1]}")
 
 def toggle_floating(address):
@@ -91,3 +118,16 @@ def focus_window(address):
 
 def move_win_to_workspace(address,workspace):
     _run_command(f"hyprctl dispatch movetoworkspacesilent {workspace}, address:{address}")
+
+def get_active_workspace():
+    return json.loads(_run_command("hyprctl activeworkspace -j"))
+def get_active_workspace_id():
+    workspace_info = get_active_workspace()
+    print("workspace_info",workspace_info)
+    workspace_id = workspace_info["id"]
+    return workspace_id
+
+
+hyprctl dispatch focuswindow address:0x56090b1d8c20
+hyprctl dispatch movetoworkspacesilent 1,address:0x56090b1d8c20
+hyprctl dispatch movewindowpixel 0 0, address:0x56090b1d8c20
