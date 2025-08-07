@@ -1,51 +1,65 @@
 import os
 import subprocess
 import json
+import time
+
+def _run_command(command):
+    print(f"Running command: {command}")
+    try:
+        result = subprocess.run(command.split(), capture_output=True, text=True, check=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed: {e}")
+        return ""
+
 def get_clients():
     try:
-        # Run hyprctl clients -j and capture output
-        result = subprocess.run(['hyprctl', 'clients', '-j'], capture_output=True, text=True, check=True)
-        
-        # Parse the output as JSON
-        clients = json.loads(result.stdout)
-        
-        return clients
-    except subprocess.CalledProcessError as e:
-        print(f"Error running hyprctl: {e}")
+        result = _run_command('hyprctl clients -j')
+        return json.loads(result)
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON: {e}")
-    
-    return []
-def get_client_info(address:str):
-    try:
-        # Run hyprctl clients -j
-        result = subprocess.run(['hyprctl', 'clients', '-j'], capture_output=True, text=True, check=True)
-        clients = json.loads(result.stdout)
+        return []
 
-        # Search for the client with the given address
-        for client in clients:
-            if client.get("address") == address:
-                return client
-
-        print(f"No client found with address: {address}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error running hyprctl: {e}")
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON: {e}")
+def get_client_info(address: str):
+    clients = get_clients()
+    for client in clients:
+        if client.get("address") == address:
+            return client
+    print(f"No client found with address: {address}")
+    return None
 
 def get_active_window():
-        out, _, _ = os.system("hyprctl activewindow -j")
-        try:
-            j = json.loads(out)
-            return j.get("address", "")
-        except Exception:
-            return ""
+    out = _run_command("hyprctl activewindow -j")
+    try:
+        j = json.loads(out)
+        return j.get("address", "")
+    except Exception as e:
+        print(f"Error getting active window: {e}")
+        return ""
 
-def set_active_client(address,max_count = 10):
+def set_active_client(address, max_count=10):
     count = 0
-    while(get_active_window() != address and count < max_count):
-        os.system(f"hyprctl dispatch focuswindow address:{address}")
-        count+=1
-    if(count >= max_count):
-        return False
-    return True
+    while get_active_window() != address and count < max_count:
+        _run_command(f"hyprctl dispatch focuswindow address:{address}")
+        time.sleep(0.05)  # tiny wait
+        count += 1
+    return count < max_count
+
+def move_window_local(address, target_x, target_y):
+    info = get_client_info(address)
+    if not info:
+        print("Could not get window info.")
+        return
+
+    current_pos = info.get("at", [0, 0])
+    dx = target_x - current_pos[0]
+    dy = target_y - current_pos[1]
+
+    print(f"Moving window by offset dx={dx}, dy={dy}")
+    _run_command(f"hyprctl dispatch movewindowpixel {dx} {dy} address:{address}")
+    new_info =  get_client_info(address)
+    pos = info.get("at", [0, 0])
+    print(f"Window position: {pos[0]}:{pos[1]}")
+
+def toggle_floating(address):
+    _run_command(f"hyprctl dispatch togglefloating address:{address}")

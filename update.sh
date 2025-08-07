@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copy source files
-cp /mnt/MyCodeProjects/hyprlandhide/{PKGBUILD,LICENSE,min.sh,HyprHideGui.py,HyprHideDev.py,config.cfg,min.py,version.txt} ~/aur-hyprhide/
+cp /mnt/MyCodeProjects/hyprlandhide/{PKGBUILD,LICENSE,min.sh,HyprHideGui.py,hyprland_interface,HyprHideDev.py,config.cfg,min.py,version.txt} ~/aur-hyprhide/
 
 # Replace pkgver in PKGBUILD with version.txt
 VERSION=$(< /mnt/MyCodeProjects/hyprlandhide/version.txt)

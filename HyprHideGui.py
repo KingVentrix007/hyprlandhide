@@ -9,6 +9,7 @@ import signal
 import configparser
 import commentjson
 import argparse
+import hyprland_interface
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QCursor
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
@@ -209,36 +210,24 @@ class HiddenWindowItem(QWidget):
         if focused != self.address:
             print("Direct focus failed, cycling to locate window...")
             max_tries = len(get_hyprctl_clients())
-            success = self.cycle_until_focused(self.address,max_tries=max_tries)
-            if not success:
-                check_client = get_client_by_address(self.address)
-                if(check_client == None):
-                    print("Failed to focus window after cycling")
-                else:
-                    print("Okay, so what no")
-                return
-        
         if(client_data['floating'] == False):
-            self.run_cmd("hyprctl dispatch togglefloating")
+            hyprland_interface.toggle_floating(self.address)
         if(test_data["workspace"]['id'] != self.workspace):
             print("Move again")
             self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace},address:{addr}")
         focused = self.get_focused_window()
         self.run_cmd(f"hyprctl dispatch focuswindow address:{self.address}")
         focused = self.get_focused_window()
-        # if focused != self.address:
-            # max_tries = len(self.get_hyprctl_clients())
-            # success = self.cycle_until_focused(self.address,max_tries=max_tries)
-            # if not success:
-                
-            #     print("Failed to focus window after cycling")
-            #     return
-        self.run_cmd(f"hyprctl dispatch moveactive {self.x} {self.y}")
-        self.run_cmd("hyprctl dispatch togglefloating")
+        hyprland_interface.move_window_local(self.address,self.x,self.y)
+        if(self.was_floating != client_data['floating']):
+            # self.run_cmd("command")
+            hyprland_interface.toggle_floating(self.address)
+
         if(self.was_floating == client_data['floating']):
             pass
         else:
-            self.run_cmd("hyprctl dispatch togglefloating")
+            hyprland_interface.toggle_floating(self.address)
+
             # while(self.x !=client_data['at'][0] and self.y != client_data['at'][0]):
             print(f"Window disired pos: {self.x}:{self.y} vs {client_data['at'][0]}:{client_data['at'][1]}")
             self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace},address:{addr}")
@@ -266,8 +255,8 @@ class HiddenWindowItem(QWidget):
             print("I did this right")
             pass
         else:
+            hyprland_interface.toggle_floating(self.address)
 
-            self.run_cmd("hyprctl dispatch togglefloating")
         print(f"Window floating state = {check_state_c['floating']}")
         self.run_cmd(f"hyprctl dispatch movetoworkspacesilent {self.workspace},address:{addr}")
         self.restore_complete.emit()
@@ -774,3 +763,4 @@ if __name__ == "__main__":
         window.position_near_mouse()
         window.show()
         sys.exit(app.exec())
+#0x56090b1d9f60
