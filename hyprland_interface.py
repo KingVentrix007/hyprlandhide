@@ -128,6 +128,6 @@ def get_active_workspace_id():
     return workspace_id
 
 
-hyprctl dispatch focuswindow address:0x56090b1d8c20
-hyprctl dispatch movetoworkspacesilent 1,address:0x56090b1d8c20
-hyprctl dispatch movewindowpixel 0 0, address:0x56090b1d8c20
+# hyprctl dispatch focuswindow address:0x56090b1d8c20
+# hyprctl dispatch movetoworkspacesilent 1,address:0x56090b1d8c20
+# hyprctl dispatch movewindowpixel 0 0, address:0x56090b1d8c20
