@@ -63,3 +63,12 @@ def move_window_local(address, target_x, target_y):
 
 def toggle_floating(address):
     _run_command(f"hyprctl dispatch togglefloating address:{address}")
+
+def set_current_workspace(workspace:int):
+    _run_command(f"hyprctl dispatch workspace {workspace}")
+
+def focus_window(address):
+    _run_command(f"hyprctl dispatch focuswindow address:{address}")
+
+def move_win_to_workspace(address,workspace):
+    _run_command(f"hyprctl dispatch movetoworkspacesilent {workspace}, address:{address}")
